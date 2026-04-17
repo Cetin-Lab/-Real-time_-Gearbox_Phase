@@ -162,5 +162,3 @@ If you find this work useful, please cite:
 ## Contact
 
 - **Yingyi Luo** — yluo52@uic.edu
-- **Ahmet Enis Cetin** (Corresponding) — aecyy@uic.edu
-- **Hamid Reza Karimi** (Corresponding) — hamidreza.karimi@polimi.it
