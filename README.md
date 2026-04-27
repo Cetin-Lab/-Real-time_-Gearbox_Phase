@@ -110,23 +110,26 @@ Localization of the spectral peak closest to the theoretical fault order 23.277 
 ```
 .
 ├── README.md
-├── TPNWHT/
-│   ├── model_POSE_HTF.py                  # TPNWHT model definition
-│   ├── Train_POSE_HT_REAL.py              # Training script — real branch
-│   ├── Train_POSE_HT_IMG.py               # Training script — imaginary branch
-│   ├── test_POSE_HT_ALL-PAPER-FIGURE.py   # Testing & figure generation
-│   ├── HT_result_to_excel.py              # Export results to Excel
-│   ├── best_test_model_real_parts.pth     # Best checkpoint (real branch)
-│   ├── best_test_model_imag_parts.pth     # Best checkpoint (imaginary branch)
-│   └── x_train.npy / y_train.npy / x_test.npy / y_test.npy
-│
-└── TPNWHT2/
-    ├── model_POSE_HTF.py                  # TPNWHT2 model definition (with decimation)
-    ├── Train_POSE_HT_REAL.py              # Training script — real branch
-    ├── Train_POSE_HT_IMG.py               # Training script — imaginary branch
-    ├── test_POSE_HTF.py                   # Testing script
-    └── best_test_model_*.pth              # Model checkpoints
+├── requirements.txt
+├── models/
+│   ├── __init__.py          # Exports TPNWHT, TPNWHT2, JWHT
+│   ├── wht_layers.py        # Shared primitives: WHT1D, DownsampleLY, SoftThresholding
+│   ├── tpnwht.py            # TPNWHT model (dual-branch, no decimation)
+│   ├── tpnwht2.py           # TPNWHT2 model (dual-branch with learnable decimation)
+│   └── jwht.py              # JWHT model (joint single model)
+├── train.py                 # Unified training entry point (all three models)
+├── test_TPNWHT.ipynb        # Evaluation notebook — TPNWHT
+├── test_TPNWHT2.ipynb       # Evaluation notebook — TPNWHT2
+├── test_JWHT.ipynb          # Evaluation notebook — JWHT (includes fault-order estimation)
+└── checkpoints/
+    ├── TPNWHT_best_test_model_real_parts.pth
+    ├── TPNWHT_best_test_model_imag_parts.pth
+    ├── TPNWHT2_best_test_model_real_parts.pth
+    ├── TPNWHT2_best_test_model_imag_parts.pth
+    └── JWHT_best_model.pth
 ```
+
+Data files (`x_train.npy`, `y_train.npy`, `x_test.npy`, `y_test.npy`) should be placed in the project root directory. Expected shapes: `x_*.npy` → `(N, 1024)`, `y_*.npy` → `(N, 32)` where `y[:, :16]` = real part and `y[:, 16:]` = imaginary part.
 
 ---
 
@@ -135,7 +138,7 @@ Localization of the spectral peak closest to the theoretical fault order 23.277 
 ```bash
 conda create -n wht_phase python=3.9
 conda activate wht_phase
-pip install torch numpy scipy pandas openpyxl matplotlib
+pip install -r requirements.txt
 ```
 
 > **Requirements:** PyTorch ≥ 1.12, CUDA-capable GPU (recommended). Models were trained with the AdamW optimizer and MSE loss.
@@ -146,28 +149,34 @@ pip install torch numpy scipy pandas openpyxl matplotlib
 
 ### Training
 
+All three models share a single entry point:
+
 ```bash
 # TPNWHT — train real and imaginary branches separately
-cd TPNWHT
-python Train_POSE_HT_REAL.py
-python Train_POSE_HT_IMG.py
+python train.py --model tpnwht --part real --epochs 2000
+python train.py --model tpnwht --part imag --epochs 500
 
 # TPNWHT2 — with learnable decimation layers
-cd TPNWHT2
-python Train_POSE_HT_REAL.py
-python Train_POSE_HT_IMG.py
+python train.py --model tpnwht2 --part real --epochs 2000
+python train.py --model tpnwht2 --part imag --epochs 500
+
+# JWHT — joint real+imaginary, single model
+python train.py --model jwht --epochs 500
 ```
 
-### Testing & Evaluation
+Checkpoints are saved automatically to `checkpoints/` with model-prefixed filenames. Training resumes from the best existing checkpoint if one is found.
 
-```bash
-# Generate paper figures and evaluation results
-cd TPNWHT
-python test_POSE_HT_ALL-PAPER-FIGURE.py
+### Evaluation
 
-# Export numerical metrics to Excel
-python HT_result_to_excel.py
-```
+Open the corresponding notebook in Jupyter:
+
+| Notebook | Model | Dataset |
+|----------|-------|---------|
+| `test_TPNWHT.ipynb` | TPNWHT | Synthetic / Safran |
+| `test_TPNWHT2.ipynb` | TPNWHT2 | Synthetic / Safran |
+| `test_JWHT.ipynb` | JWHT | Safran (includes fault-order estimation) |
+
+Each notebook loads the checkpoint from `checkpoints/`, runs inference, prints all five metrics (MACE, CVar, CSD, NAACC, RMSEP25S), and generates the phase comparison plot and rose diagrams.
 
 ---
 
